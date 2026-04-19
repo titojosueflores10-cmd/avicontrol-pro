@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>AviControl Pro — Gestión Total</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{background:#0d1a0d;font-family:'Barlow Condensed',sans-serif;color:#e0f0e0;overflow-x:hidden}
+    input,select,textarea{background:#162316;border:1.5px solid #2d4d2d;color:#e0f0e0;padding:12px;border-radius:7px;width:100%;font-family:inherit;outline:none;margin-bottom:10px}
+    input:focus{border-color:#f59e0b}
+    .card{background:#162316;border:1px solid #2a422a;border-radius:9px;padding:14px;margin-bottom:12px}
+    .btn{background:#f59e0b;color:#000;padding:12px;border-radius:8px;font-weight:700;border:none;cursor:pointer;width:100%;text-transform:uppercase}
+    .nav-btn{flex:1;padding:12px 0;text-align:center;font-size:10px;font-weight:700;color:#4a6a4a;background:none;border:none;border-top:3px solid transparent}
+    .nav-btn.active{color:#f59e0b;border-top-color:#f59e0b}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+    th,td{border:1px solid #2a422a;padding:8px;text-align:center}
+    th{background:#223322;color:#f59e0b}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState,useEffect}=React;
+
+/* --- UTILIDADES --- */
+const getStdW = (day) => {
+  const std = {1:45,7:185,14:470,21:930,28:1610,35:2200,42:2800};
+  if(std[day]) return std[day];
+  const keys = Object.keys(std).map(Number).sort((a,b)=>a-b);
+  for(let i=0;i<keys.length-1;i++){
+    if(day>keys[i]&&day<keys[i+1]){
+      const t=(day-keys[i])/(keys[i+1]-keys[i]);
+      return Math.round(std[keys[i]]+t*(std[keys[i+1]]-std[keys[i]]));
+    }
+  }
+  return 2800;
+};
+
+const App = () => {
+  const [data, setData] = useState(() => JSON.parse(localStorage.getItem('avicontrol_v3')) || {lots:[], records:[]});
+  const [tab, setTab] = useState('lotes');
+  const [activeLotId, setActiveLotId] = useState(null);
+  const [editingRecord, setEditingRecord] = useState(null);
+
+  useEffect(() => { localStorage.setItem('avicontrol_v3', JSON.stringify(data)); }, [data]);
+
+  const activeLot = data.lots.find(l => l.id === activeLotId);
+  const records = data.records.filter(r => r.lotId === activeLotId).sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  const saveRecord = (rec) => {
+    const newRecords = editingRecord 
+      ? data.records.map(r => (r.lotId === activeLotId && r.date === editingRecord.date) ? rec : r)
+      : [...data.records.filter(r => !(r.lotId === activeLotId && r.date === rec.date)), rec];
+    
+    setData({...data, records: newRecords});
+    setEditingRecord(null);
+    setTab('historial');
+  };
+
+  return (
+    <div style={{paddingBottom:80}}>
+      <div style={{padding:15, textAlign:'center', borderBottom:'2px solid #2a422a', background:'#162316'}}>
+        <h2 style={{color:'#f59e0b'}}>AVICONTROL PRO</h2>
+        {activeLot && <small style={{color:'#8aaa8a'}}>{activeLot.name} • Día {Math.floor((new Date() - new Date(activeLot.startDate))/864e5)+1}</small>}
+      </div>
+
+      <div style={{padding:15}}>
+        {tab === 'lotes' && <LotesView data={data} onSelect={(id)=>{setActiveLotId(id); setTab('dash')}} onNew={()=>setTab('nuevo')}/>}
+        {tab === 'dash' && activeLot && <Dashboard lot={activeLot} records={records} />}
+        {tab === 'reg' && activeLot && <Registro lot={activeLot} onSave={saveRecord} editData={editingRecord} onCancel={()=>{setEditingRecord(null); setTab('historial')}}/>}
+        {tab === 'historial' && activeLot && <Historial records={records} onEdit={(r)=>{setEditingRecord(r); setTab('reg')}} />}
+        {tab === 'nuevo' && <NuevoLote onSave={(l)=>{setData({...data, lots:[...data.lots, l]}); setActiveLotId(l.id); setTab('lotes')}}/>}
+      </div>
+
+      <nav style={{position:'fixed', bottom:0, width:'100%', background:'#162316', display:'flex', borderTop:'1.5px solid #2a422a'}}>
+        <button className={`nav-btn ${tab==='lotes'?'active':''}`} onClick={()=>setTab('lotes')}>LOTES</button>
+        <button className={`nav-btn ${tab==='dash'?'active':''}`} onClick={()=>setTab('dash')}>DASH</button>
+        <button className={`nav-btn ${tab==='reg'?'active':''}`} onClick={()=>setTab('reg')}>REGISTRAR</button>
+        <button className={`nav-btn ${tab==='historial'?'active':''}`} onClick={()=>setTab('historial')}>HISTORIAL</button>
+      </nav>
+    </div>
+  );
+};
+
+/* --- SUB-COMPONENTES --- */
+
+const LotesView = ({data, onSelect, onNew}) => (
+  <div>
+    <button className="btn" onClick={onNew} style={{marginBottom:20}}>+ NUEVO LOTE</button>
+    {data.lots.map(l => {
+      const recs = data.records.filter(r => r.lotId === l.id).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
+      return (
+        <div key={l.id} className="card" onClick={()=>onSelect(l.id)}>
+          <div style={{display:'flex', justifyContent:'space-between'}}>
+            <strong>{l.name}</strong>
+            <span style={{color:'#f59e0b'}}>{l.breed}</span>
+          </div>
+          <div style={{display:'flex', gap:10, marginTop:10}}>
+            {recs.map(r => (
+              <div key={r.date} style={{flex:1, background:'#0d1a0d', padding:5, borderRadius:4, textAlign:'center'}}>
+                <div style={{fontSize:9, color:'#4a6a4a'}}>D{r.day}</div>
+                <div style={{fontSize:12, fontWeight:'bold'}}>{r.weight}g</div>
+              </div>
+            ))}
+            {recs.length === 0 && <small style={{color:'#4a6a4a'}}>Sin registros recientes</small>}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+
+const Registro = ({lot, onSave, editData, onCancel}) => {
+  const [f, setF] = useState(editData || {date: new Date().toISOString().split('T'), weight:'', mort:0, feed:''});
+  
+  const day = Math.floor((new Date(f.date) - new Date(lot.startDate))/864e5)+1;
+  
+  return (
+    <div className="card">
+      <h3>{editData ? 'Corregir Dato' : 'Registro Diario'}</h3>
+      <label style={{fontSize:11, color:'#8aaa8a'}}>FECHA DEL REGISTRO</label>
+      <input type="date" value={f.date} onChange={e=>setF({...f, date:e.target.value})}/>
+      
+      <div style={{display:'flex', gap:10}}>
+        <div style={{flex:1}}>
+          <label style={{fontSize:11, color:'#8aaa8a'}}>DÍA DE VIDA</label>
+          <input type="number" value={day} disabled style={{opacity:0.6}}/>
+        </div>
+        <div style={{flex:1}}>
+          <label style={{fontSize:11, color:'#8aaa8a'}}>PESO (g)</label>
+          <input type="number" value={f.weight} onChange={e=>setF({...f, weight:e.target.value})} placeholder={getStdW(day)+'g'}/>
+        </div>
+      </div>
+
+      <div style={{display:'flex', gap:10}}>
+        <div style={{flex:1}}>
+          <label style={{fontSize:11, color:'#8aaa8a'}}>BAJAS</label>
+          <input type="number" value={f.mort} onChange={e=>setF({...f, mort:e.target.value})}/>
+        </div>
+        <div style={{flex:1}}>
+          <label style={{fontSize:11, color:'#8aaa8a'}}>ALIMENTO (kg)</label>
+          <input type="number" value={f.feed} onChange={e=>setF({...f, feed:e.target.value})}/>
+        </div>
+      </div>
+
+      <button className="btn" onClick={()=>onSave({...f, day, lotId:lot.id})}>
+        {editData ? 'ACTUALIZAR' : 'GUARDAR DATO'}
+      </button>
+      {editData && <button onClick={onCancel} style={{background:'none', border:'none', color:'#f87171', width:'100%', marginTop:10}}>Cancelar Edición</button>}
+    </div>
+  );
+};
+
+const Historial = ({records, onEdit}) => (
+  <div>
+    <h3>Historial del Lote</h3>
+    <table>
+      <thead>
+        <tr><th>Día</th><th>Peso</th><th>Mort.</th><th>Feed</th><th>Acción</th></tr>
+      </thead>
+      <tbody>
+        {records.map(r => (
+          <tr key={r.date}>
+            <td>{r.day}</td>
+            <td style={{color: r.weight >= getStdW(r.day) ? '#4ade80' : '#f87171'}}>{r.weight}g</td>
+            <td>{r.mort}</td>
+            <td>{r.feed}k</td>
+            <td><button onClick={()=>onEdit(r)} style={{background:'#2a422a', color:'#fff', border:'none', padding:'4px 8px', borderRadius:4, fontSize:10}}>EDIT</button></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const Dashboard = ({lot, records}) => {
+  const totalMort = records.reduce((sum, r) => sum + Number(r.mort), 0);
+  const totalFeed = records.reduce((sum, r) => sum + Number(r.feed), 0);
+  const lastWeight = records?.weight || 0;
+  const birdsAlive = lot.initialBirds - totalMort;
+  const ica = lastWeight > 0 ? (totalFeed / ((lastWeight/1000) * birdsAlive)).toFixed(3) : '0.000';
+
+  return (
+    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+      <div className="card" style={{textAlign:'center'}}>
+        <div style={{fontSize:11, color:'#8aaa8a'}}>MORTALIDAD</div>
+        <div style={{fontSize:24, fontWeight:'bold', color:'#f87171'}}>{((totalMort/lot.initialBirds)*100).toFixed(2)}%</div>
+      </div>
+      <div className="card" style={{textAlign:'center'}}>
+        <div style={{fontSize:11, color:'#8aaa8a'}}>CONVERSIÓN (ICA)</div>
+        <div style={{fontSize:24, fontWeight:'bold', color:'#f59e0b'}}>{ica}</div>
+      </div>
+      <div className="card" style={{textAlign:'center', gridColumn:'span 2'}}>
+        <div style={{fontSize:11, color:'#8aaa8a'}}>PESO ACTUAL VS ESTÁNDAR</div>
+        <div style={{fontSize:32, fontWeight:'bold'}}>{lastWeight}g <small style={{fontSize:14, color:'#4a6a4a'}}>/ {getStdW(records?.day || 1)}g</small></div>
+      </div>
+    </div>
+  );
+};
+
+const NuevoLote = ({onSave}) => {
+  const [f, setF] = useState({name:'', breed:'Cobb 500', birds:500, date: new Date().toISOString().split('T')});
+  return (
+    <div className="card">
+      <h3>Nuevo Lote</h3>
+      <input placeholder="Nombre del Galpón" onChange={e=>setF({...f, name:e.target.value})}/>
+      <select onChange={e=>setF({...f, breed:e.target.value})}><option>Cobb 500</option><option>Ross 308</option></select>
+      <input type="number" placeholder="Cantidad de Aves" onChange={e=>setF({...f, birds:e.target.value})}/>
+      <input type="date" value={f.date} onChange={e=>setF({...f, date:e.target.value})}/>
+      <button className="btn" onClick={()=>onSave({...f, id: Date.now(), initialBirds:Number(f.birds), startDate:f.date})}>CREAR LOTE</button>
+    </div>
+  );
+};
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
