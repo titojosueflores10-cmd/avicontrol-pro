@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>AviControl Pro — V7</title>
+  <title>AviControl Pro — V8</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&display=swap" rel="stylesheet"/>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -20,6 +20,7 @@
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{border:1px solid #2a422a;padding:10px;text-align:center;font-size:13px}
     th{background:#223322;color:#f59e0b}
+    .stat-val{font-size:28px;font-weight:900;display:block}
   </style>
 </head>
 <body>
@@ -46,23 +47,23 @@ window.onload = () => {
   };
 
   const App = () => {
-    const [data, setData] = useState(() => JSON.parse(localStorage.getItem('avicontrol_v7')) || {lots:[], records:[]});
+    const [data, setData] = useState(() => JSON.parse(localStorage.getItem('avicontrol_v8')) || {lots:[], records:[]});
     const [tab, setTab] = useState('lotes');
     const [activeLotId, setActiveLotId] = useState(null);
 
-    useEffect(() => { localStorage.setItem('avicontrol_v7', JSON.stringify(data)); }, [data]);
+    useEffect(() => { localStorage.setItem('avicontrol_v8', JSON.stringify(data)); }, [data]);
     const activeLot = data.lots.find(l => l.id === activeLotId);
     const records = data.records.filter(r => r.lotId === activeLotId).sort((a,b)=>new Date(b.date)-new Date(a.date));
 
     return React.createElement('div', {style:{paddingBottom:'90px'}},
-      React.createElement('div', {style:{padding:'20px', textAlign:'center', background:'#162316', borderBottom:'3px solid #f59e0b'}},
-        React.createElement('h2', {style:{margin:0, color:'#f59e0b', fontSize:'24px', letterSpacing:'1px'}}, "AVICONTROL PRO"),
-        activeLot && React.createElement('div', {style:{color:'#8aaa8a', fontSize:'13px', marginTop:'5px'}}, `${activeLot.name} | ${activeLot.breed}`)
+      React.createElement('div', {style:{padding:'15px', textAlign:'center', background:'#162316', borderBottom:'3px solid #f59e0b'}},
+        React.createElement('h2', {style:{margin:0, color:'#f59e0b', fontSize:'22px'}}, "AVICONTROL PRO"),
+        activeLot && React.createElement('div', {style:{color:'#8aaa8a', fontSize:'12px'}}, `${activeLot.name} | ${activeLot.breed}`)
       ),
       React.createElement('div', {style:{padding:'15px'}},
         tab === 'lotes' && React.createElement(LotesView, {data, onSelect:(id)=>{setActiveLotId(id); setTab('dash')}, onNew:()=>setTab('nuevo')}),
         tab === 'dash' && activeLot && React.createElement(Dashboard, {lot:activeLot, records}),
-        tab === 'reg' && activeLot && React.createElement(Registro, {lot:activeLot, onSave:(r)=>{setData({...data, records:[...data.records, r]}); setTab('historial')}}),
+        tab === 'reg' && activeLot && React.createElement(Registro, {lot:activeLot, onSave:(r)=>{setData({...data, records:[...data.records, r]}); setTab('dash')}}),
         tab === 'historial' && activeLot && React.createElement(Historial, {lot:activeLot, records}),
         tab === 'nuevo' && React.createElement(NuevoLote, {onSave:(l)=>{setData({...data, lots:[...data.lots, l]}); setActiveLotId(l.id); setTab('lotes')}})
       ),
@@ -82,62 +83,73 @@ window.onload = () => {
             React.createElement('strong', {style:{fontSize:'18px'}}, l.name),
             React.createElement('span', {style:{color:'#f59e0b'}}, l.breed)
         ),
-        React.createElement('div', {style:{fontSize:'12px', color:'#8aaa8a', marginTop:'8px'}}, `Iniciado el: ${l.startDate} • ${l.initialBirds} aves`)
+        React.createElement('div', {style:{fontSize:'12px', color:'#8aaa8a', marginTop:'5px'}}, `Inicio: ${l.startDate} | ${l.initialBirds} aves`)
       ))
     )
   );
 
   const Dashboard = ({lot, records}) => {
+    const totalMort = records.reduce((sum, r) => sum + Number(r.mort), 0);
+    const totalFeed = records.reduce((sum, r) => sum + Number(r.feed), 0);
     const lastW = records?.weight || 0;
     const day = records ? Math.floor((new Date(records.date) - new Date(lot.startDate))/864e5)+1 : 1;
-    const std = getStdW(lot.breed, day);
+    const avesVivas = lot.initialBirds - totalMort;
+    
+    // CÁLCULO ICA: Alimento Total (kg) / (Peso promedio (kg) * Aves Vivas)
+    const ica = (lastW > 0 && avesVivas > 0) ? (totalFeed / ((lastW / 1000) * avesVivas)).toFixed(2) : "0.00";
+
     return React.createElement('div', null,
-      React.createElement('div', {className:'card', style:{textAlign:'center'}},
-        React.createElement('span', {className:'label-mini'}, "Peso Real"),
-        React.createElement('div', {style:{fontSize:'42px', fontWeight:'900'}}, `${lastW}g`),
-        React.createElement('div', {style:{color: lastW >= std ? '#4ade80' : '#f87171', marginTop:'5px', fontWeight:'bold'}}, 
-            lastW >= std ? `↑ +${lastW-std}g vs Guía` : `↓ -${std-lastW}g vs Guía`
+      React.createElement('div', {style:{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}},
+        React.createElement('div', {className:'card', style:{textAlign:'center'}},
+            React.createElement('span', {className:'label-mini'}, "Mortalidad"),
+            React.createElement('span', {className:'stat-val', style:{color:'#f87171'}}, `${((totalMort/lot.initialBirds)*100).toFixed(1)}%`),
+            React.createElement('small', {style:{color:'#4a6a4a'}}, `${totalMort} bajas`)
+        ),
+        React.createElement('div', {className:'card', style:{textAlign:'center'}},
+            React.createElement('span', {className:'label-mini'}, "ICA (Conv.)"),
+            React.createElement('span', {className:'stat-val', style:{color:'#f59e0b'}}, ica),
+            React.createElement('small', {style:{color:'#4a6a4a'}}, `${totalFeed}kg consumidos`)
         )
       ),
       React.createElement('div', {className:'card', style:{textAlign:'center'}},
-        React.createElement('span', {className:'label-mini'}, `Estándar ${lot.breed} - Día ${day}`),
-        React.createElement('div', {style:{fontSize:'26px', color:'#f59e0b', fontWeight:'700'}}, `${std}g`)
+        React.createElement('span', {className:'label-mini'}, "Peso Promedio"),
+        React.createElement('span', {className:'stat-val', style:{fontSize:'48px'}}, `${lastW}g`),
+        React.createElement('div', {style:{fontSize:'14px', marginTop:'5px', color:'#8aaa8a'}}, `Día ${day} | Estándar: ${getStdW(lot.breed, day)}g`)
       )
-    )
+    );
   };
 
   const Registro = ({lot, onSave}) => {
     const [wt, setWt] = useState('');
     const [mt, setMt] = useState(0);
+    const [fd, setFd] = useState('');
     const [dt, setDt] = useState(new Date().toISOString().split('T'));
     return React.createElement('div', {className:'card'},
-      React.createElement('span', {className:'label-mini'}, "Fecha de Pesaje"),
+      React.createElement('span', {className:'label-mini'}, "Fecha"),
       React.createElement('input', {type:'date', value:dt, onChange:e=>setDt(e.target.value)}),
       React.createElement('span', {className:'label-mini'}, "Peso Promedio (g)"),
       React.createElement('input', {type:'number', value:wt, onChange:e=>setWt(e.target.value)}),
       React.createElement('span', {className:'label-mini'}, "Bajas de hoy"),
       React.createElement('input', {type:'number', value:mt, onChange:e=>setMt(e.target.value)}),
-      React.createElement('button', {className:'btn', onClick:()=>onSave({weight:Number(wt), mort:Number(mt), date:dt, lotId:lot.id})}, "GUARDAR")
+      React.createElement('span', {className:'label-mini'}, "Alimento consumido hoy (kg)"),
+      React.createElement('input', {type:'number', value:fd, onChange:e=>setFd(e.target.value)}),
+      React.createElement('button', {className:'btn', onClick:()=>onSave({weight:Number(wt), mort:Number(mt), feed:Number(fd), date:dt, lotId:lot.id})}, "GUARDAR DATOS")
     );
   };
 
   const Historial = ({lot, records}) => (
-    React.createElement('div', null,
-      React.createElement('table', null,
-        React.createElement('thead', null, React.createElement('tr', null, 
-          ['Día', 'Peso', 'Guía', 'Dif.'].map(h => React.createElement('th', {key:h}, h))
-        )),
-        React.createElement('tbody', null, records.map(r => {
-          const d = Math.floor((new Date(r.date) - new Date(lot.startDate))/864e5)+1;
-          const s = getStdW(lot.breed, d);
-          return React.createElement('tr', {key:r.date},
-            React.createElement('td', null, d),
-            React.createElement('td', {style:{fontWeight:'bold'}}, `${r.weight}g`),
-            React.createElement('td', null, `${s}g`),
-            React.createElement('td', {style:{color: r.weight >= s ? '#4ade80' : '#f87171'}}, `${r.weight-s}g`)
-          );
-        }))
-      )
+    React.createElement('table', null,
+      React.createElement('thead', null, React.createElement('tr', null, 
+        ['Día', 'Peso', 'Bajas', 'Alim.'].map(h => React.createElement('th', {key:h}, h))
+      )),
+      React.createElement('tbody', null, records.map(r => (
+        React.createElement('tr', {key:r.date},
+          React.createElement('td', null, Math.floor((new Date(r.date) - new Date(lot.startDate))/864e5)+1),
+          React.createElement('td', null, `${r.weight}g`),
+          React.createElement('td', null, r.mort),
+          React.createElement('td', null, `${r.feed}k`)
+        )
+      )))
     )
   );
 
@@ -147,17 +159,17 @@ window.onload = () => {
     const [c, setC] = useState(500);
     const [d, setD] = useState(new Date().toISOString().split('T'));
     return React.createElement('div', {className:'card'},
-      React.createElement('h3', {style:{marginBottom:'20px', textAlign:'center'}}, "CONFIGURACIÓN INICIAL"),
-      React.createElement('span', {className:'label-mini'}, "1. Nombre del Galpón"),
-      React.createElement('input', {placeholder:'Ej. Galpón San José', value:n, onChange:e=>setN(e.target.value)}),
-      React.createElement('span', {className:'label-mini'}, "2. Línea Genética"),
+      React.createElement('h3', {style:{marginBottom:'20px', textAlign:'center', color:'#f59e0b'}}, "NUEVA CONFIGURACIÓN"),
+      React.createElement('span', {className:'label-mini'}, "Nombre del Galpón"),
+      React.createElement('input', {placeholder:'Ej. Galpón A-1', value:n, onChange:e=>setN(e.target.value)}),
+      React.createElement('span', {className:'label-mini'}, "Línea Genética"),
       React.createElement('select', {value:b, onChange:e=>setB(e.target.value)}, 
         React.createElement('option', {value:'Cobb 500'}, "COBB 500"),
         React.createElement('option', {value:'Ross 308'}, "ROSS 308")
       ),
-      React.createElement('span', {className:'label-mini'}, "3. Fecha de Ingreso"),
+      React.createElement('span', {className:'label-mini'}, "Fecha de Ingreso"),
       React.createElement('input', {type:'date', value:d, onChange:e=>setD(e.target.value)}),
-      React.createElement('span', {className:'label-mini'}, "4. Cantidad de Aves"),
+      React.createElement('span', {className:'label-mini'}, "Cantidad Inicial"),
       React.createElement('input', {type:'number', value:c, onChange:e=>setC(e.target.value)}),
       React.createElement('button', {className:'btn', onClick:()=>onSave({id:Date.now(), name:n, breed:b, initialBirds:Number(c), startDate:d})}, "INICIAR LOTE")
     );
