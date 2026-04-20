@@ -1,112 +1,243 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AviControl Lite</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta name="theme-color" content="#0a0c0f"/>
+    <title>AviControl Pro</title>
+    
+    <link rel="manifest" href="data:application/json,{'name':'AviControl Pro','short_name':'AviControl','start_url':'.','display':'standalone','background_color':'#0a0c0f','theme_color':'#f0a500'}">
 
-<style>
-body {
-  font-family: Arial;
-  background:#0a0c0f;
-  color:#fff;
-  padding:20px;
-}
+    <style>
+        :root {
+            --primary: #f0a500;
+            --bg: #0a0c0f;
+            --card: #161b22;
+            --text: #ffffff;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --border: #30363d;
+        }
 
-input {
-  width:100%;
-  padding:14px;
-  margin:8px 0;
-  font-size:16px;
-  border:none;
-  border-radius:6px;
-}
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding-bottom: 80px;
+        }
 
-button {
-  width:100%;
-  padding:16px;
-  margin-top:10px;
-  font-size:16px;
-  background:#f0a500;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
-}
+        .header {
+            padding: 20px;
+            background: var(--card);
+            text-align: center;
+            border-bottom: 2px solid var(--primary);
+        }
 
-.alert {
-  padding:12px;
-  margin-top:10px;
-  border-radius:6px;
-}
+        .container { padding: 15px; max-width: 500px; margin: auto; }
 
-.success { background:#0f5132; }
-.danger { background:#842029; }
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+        }
 
-/* alto contraste */
-.high {
-  background:#000;
-  color:#fff;
-}
-</style>
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+        }
+
+        .val { font-size: 1.4rem; font-weight: bold; display: block; }
+        .lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0 15px 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #0d1117;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 16px;
+            border-radius: 10px;
+            font-weight: bold;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .alert-ok { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+        .alert-bad { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+
+        .nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: var(--card);
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .nav-item { font-size: 0.8rem; color: #8b949e; cursor: pointer; text-align: center; }
+        .nav-item.active { color: var(--primary); }
+
+        .hidden { display: none; }
+    </style>
 </head>
-
 <body>
 
-<h2>🥚 AviControl Lite</h2>
+<div class="header">
+    <h2 style="margin:0">🥚 AviControl Pro</h2>
+    <small id="batchInfo">Cargando lote...</small>
+</div>
 
-<input type="number" id="huevos" placeholder="Huevos del día">
-<input type="number" id="precio" placeholder="Precio por huevo (Q)">
-<input type="number" id="alimento" placeholder="Alimento total (kg)">
-<input type="number" id="costo" placeholder="Costo alimento Q/kg">
+<div class="container">
+    <div id="v-home">
+        <div class="card">
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <span class="lbl">Postura</span>
+                    <span id="resPostura" class="val">0%</span>
+                </div>
+                <div class="stat-box">
+                    <span class="lbl">Balance Hoy</span>
+                    <span id="resBalance" class="val">Q 0.00</span>
+                </div>
+            </div>
+            <div id="resAlert" class="alert"></div>
+        </div>
 
-<div id="resultado" class="alert"></div>
+        <div class="card">
+            <h4 style="margin-top:0">Registro de Hoy</h4>
+            <label class="lbl">Huevos Recolectados</label>
+            <input type="number" id="inHuevos" placeholder="0">
+            
+            <label class="lbl">Alimento (Libras)</label>
+            <input type="number" id="inAlimento" placeholder="0.0">
+            
+            <button class="btn" onclick="saveData()">GUARDAR REGISTRO</button>
+        </div>
+    </div>
 
-<button onclick="calcular()">Calcular</button>
-<button onclick="guardar()">Guardar Registro</button>
-<button onclick="toggle()">Alto Contraste</button>
+    <div id="v-config" class="hidden">
+        <div class="card">
+            <h4>Configuración del Lote</h4>
+            <label class="lbl">Cantidad de Aves</label>
+            <input type="number" id="confAves">
+            <label class="lbl">Precio Venta Huevo (Q)</label>
+            <input type="number" step="0.01" id="confPrecio">
+            <label class="lbl">Costo Libra Alimento (Q)</label>
+            <input type="number" step="0.01" id="confCosto">
+            <button class="btn" onclick="updateConfig()">ACTUALIZAR</button>
+        </div>
+    </div>
+</div>
+
+<div class="nav">
+    <div class="nav-item active" onclick="showV('home')">INICIO</div>
+    <div class="nav-item" onclick="showV('config')">AJUSTES</div>
+</div>
 
 <script>
-// ================= RENTABILIDAD
-function calcular(){
-  let h = +document.getElementById("huevos").value || 0;
-  let p = +document.getElementById("precio").value || 0;
-  let a = +document.getElementById("alimento").value || 0;
-  let c = +document.getElementById("costo").value || 0;
+    let db = JSON.parse(localStorage.getItem('avi_pro_db')) || {
+        conf: { aves: 100, precio: 1.25, costo: 4.50 },
+        logs: []
+    };
 
-  let ingreso = h * p;
-  let gasto = a * c;
-  let ganancia = ingreso - gasto;
+    function showV(v) {
+        document.getElementById('v-home').classList.toggle('hidden', v !== 'home');
+        document.getElementById('v-config').classList.toggle('hidden', v !== 'config');
+        if(v === 'config') fillConf();
+    }
 
-  let r = document.getElementById("resultado");
+    function fillConf() {
+        document.getElementById('confAves').value = db.conf.aves;
+        document.getElementById('confPrecio').value = db.conf.precio;
+        document.getElementById('confCosto').value = db.conf.costo;
+    }
 
-  if(ganancia < 0){
-    r.className="alert danger";
-    r.innerHTML="⚠️ Pérdida: Q"+ganancia.toFixed(2);
-  }else{
-    r.className="alert success";
-    r.innerHTML="✅ Ganancia: Q"+ganancia.toFixed(2);
-  }
-}
+    function updateConfig() {
+        db.conf.aves = parseInt(document.getElementById('confAves').value);
+        db.conf.precio = parseFloat(document.getElementById('confPrecio').value);
+        db.conf.costo = parseFloat(document.getElementById('confCosto').value);
+        save();
+        alert("Ajustes guardados");
+        showV('home');
+        render();
+    }
 
-// ================= GUARDAR OFFLINE
-function guardar(){
-  let data = {
-    huevos: document.getElementById("huevos").value,
-    fecha: new Date().toISOString()
-  };
+    function saveData() {
+        const h = parseInt(document.getElementById('inHuevos').value);
+        const a = parseFloat(document.getElementById('inAlimento').value);
+        if(!h || !a) return alert("Completa los datos");
 
-  let db = JSON.parse(localStorage.getItem("registros")) || [];
-  db.push(data);
-  localStorage.setItem("registros", JSON.stringify(db));
+        const ingresos = h * db.conf.precio;
+        const gastos = a * db.conf.costo;
+        const balance = ingresos - gastos;
 
-  alert("Guardado");
-}
+        db.logs.push({
+            h, a, balance, 
+            postura: (h / db.conf.aves) * 100,
+            fecha: new Date().toLocaleDateString()
+        });
 
-// ================= UI
-function toggle(){
-  document.body.classList.toggle("high");
-}
+        save();
+        render();
+        document.getElementById('inHuevos').value = "";
+        document.getElementById('inAlimento').value = "";
+        alert("¡Registro guardado!");
+    }
+
+    function save() { localStorage.setItem('avi_pro_db', JSON.stringify(db)); }
+
+    function render() {
+        document.getElementById('batchInfo').innerText = `${db.conf.aves} aves activas`;
+        if(db.logs.length > 0) {
+            const last = db.logs[db.logs.length - 1];
+            document.getElementById('resPostura').innerText = last.postura.toFixed(1) + "%";
+            document.getElementById('resBalance').innerText = "Q " + last.balance.toFixed(2);
+            
+            const alertBox = document.getElementById('resAlert');
+            alertBox.style.display = 'block';
+            if(last.balance < 0) {
+                alertBox.className = "alert alert-bad";
+                alertBox.innerText = "⚠️ Hoy perdiste dinero porque el alimento subió o la postura bajó.";
+            } else {
+                alertBox.className = "alert alert-ok";
+                alertBox.innerText = "✅ ¡Operación rentable hoy!";
+            }
+        }
+    }
+
+    // Service Worker Simple
+    if ('serviceWorker' in navigator) {
+        const sw = `const c='v1';self.addEventListener('install',e=>e.waitUntil(caches.open(c).then(ca=>ca.addAll(['./']))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
+        const blob = new Blob([sw], {type: 'text/javascript'});
+        navigator.serviceWorker.register(URL.createObjectURL(blob));
+    }
+
+    window.onload = render;
 </script>
-
 </body>
 </html>
