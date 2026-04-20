@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AviControl Lite</title>
+
+<style>
+body {
+  font-family: Arial;
+  background:#0a0c0f;
+  color:#fff;
+  padding:20px;
+}
+
+input {
+  width:100%;
+  padding:14px;
+  margin:8px 0;
+  font-size:16px;
+  border:none;
+  border-radius:6px;
+}
+
+button {
+  width:100%;
+  padding:16px;
+  margin-top:10px;
+  font-size:16px;
+  background:#f0a500;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.alert {
+  padding:12px;
+  margin-top:10px;
+  border-radius:6px;
+}
+
+.success { background:#0f5132; }
+.danger { background:#842029; }
+
+/* alto contraste */
+.high {
+  background:#000;
+  color:#fff;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🥚 AviControl Lite</h2>
+
+<input type="number" id="huevos" placeholder="Huevos del día">
+<input type="number" id="precio" placeholder="Precio por huevo (Q)">
+<input type="number" id="alimento" placeholder="Alimento total (kg)">
+<input type="number" id="costo" placeholder="Costo alimento Q/kg">
+
+<div id="resultado" class="alert"></div>
+
+<button onclick="calcular()">Calcular</button>
+<button onclick="guardar()">Guardar Registro</button>
+<button onclick="toggle()">Alto Contraste</button>
+
+<script>
+// ================= RENTABILIDAD
+function calcular(){
+  let h = +document.getElementById("huevos").value || 0;
+  let p = +document.getElementById("precio").value || 0;
+  let a = +document.getElementById("alimento").value || 0;
+  let c = +document.getElementById("costo").value || 0;
+
+  let ingreso = h * p;
+  let gasto = a * c;
+  let ganancia = ingreso - gasto;
+
+  let r = document.getElementById("resultado");
+
+  if(ganancia < 0){
+    r.className="alert danger";
+    r.innerHTML="⚠️ Pérdida: Q"+ganancia.toFixed(2);
+  }else{
+    r.className="alert success";
+    r.innerHTML="✅ Ganancia: Q"+ganancia.toFixed(2);
+  }
+}
+
+// ================= GUARDAR OFFLINE
+function guardar(){
+  let data = {
+    huevos: document.getElementById("huevos").value,
+    fecha: new Date().toISOString()
+  };
+
+  let db = JSON.parse(localStorage.getItem("registros")) || [];
+  db.push(data);
+  localStorage.setItem("registros", JSON.stringify(db));
+
+  alert("Guardado");
+}
+
+// ================= UI
+function toggle(){
+  document.body.classList.toggle("high");
+}
+</script>
+
+</body>
+</html>
